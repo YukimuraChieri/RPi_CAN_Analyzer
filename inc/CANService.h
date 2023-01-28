@@ -20,16 +20,19 @@
 #define CAN_DOWN(can_ch) system("ifconfig "#can_ch" down")
 
 
-void CAN0_Init(void);
-void CAN1_Init(void);
-void CAN0_DeInit(void);
-void CAN1_DeInit(void);
-void CAN0_SetBaudrate(int baud);
-void CAN1_SetBaudrate(int baud);
-void CAN0_SendPacket(uint32_t ID, uint8_t dlc, uint8_t* data);
-void CAN1_SendPacket(uint32_t ID, uint8_t dlc, uint8_t* data);
-void CAN0_RecvPacket(void);
-void CAN1_RecvPacket(void);
+typedef enum CAN_CHANNEL_E
+{
+	CAN0_CH = 0,
+	CAN1_CH = 1,
+	CAN_CH_NUM
+}CAN_CHANNEL_E;
+
+
+int CAN_Init(CAN_CHANNEL_E can_ch);
+void CAN_DeInit(CAN_CHANNEL_E can_ch);
+void CAN_SetBaudrate(CAN_CHANNEL_E can_ch, int baud);
+void CAN_SendPacket(CAN_CHANNEL_E can_ch, uint32_t can_id, uint8_t can_dlc, uint8_t* data);
+int CAN_RecvPacket(CAN_CHANNEL_E can_ch, uint32_t* can_id, uint8_t* can_dlc, uint8_t* data);
 
 #endif
 

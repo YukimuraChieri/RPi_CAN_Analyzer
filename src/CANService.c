@@ -3,131 +3,149 @@
 void* CAN0_loop_func(void* arg);
 void* CAN1_loop_func(void* arg);
 
-int can0_fd, can1_fd, nbytes;
-struct sockaddr_can can0_addr;
-struct sockaddr_can can1_addr;
-struct ifreq ifr0;
-struct ifreq ifr1;
 
-struct can_frame can0_rx_frame;
-struct can_frame can1_rx_frame;
+int can_fd[CAN_CH_NUM];
+struct sockaddr_can can_addr[CAN_CH_NUM];
+struct can_frame can_rx_frame[CAN_CH_NUM];
+struct ifreq ifr[CAN_CH_NUM];
+bool can_rx_flag[CAN_CH_NUM]; 
 
-int CAN0_Init(void)
+int CAN_Init(CAN_CHANNEL_E can_ch)
 {
-	CAN_DOWN(can0);
-	SetBaud(can0, 1000000);
-	CAN_UP(can0);
-
-	can0_fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-
-	if (-1 == can0_fd)
+	switch (can_ch)
 	{
-		printf("Create CAN0 socket error: %s (errno: %d)\r\n", strerror(errno), errno);
+		case CAN0_CH: {
+				      CAN_DOWN(can0); 
+				      SetBaud(can0, 1000000);
+				      CAN_UP(can0);
+				      break;
+			      }
+		case CAN1_CH: {
+				      CAN_DOWN(can1);
+				      SetBaud(can1, 1000000);
+				      CAN_UP(can1);
+				      break;
+			      }
+		default:
+	}
+
+	can_fd[can_ch] = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+
+	if (-1 == can_fd)
+	{
+		printf("Create CAN%d socket error: %s (errno: %d)\r\n", can_ch, strerror(errno), errno);
 		return -1;
 	}
 
-	strcpy(ifr0.ifr_name, "can0");
-	ioctl(can0_fd, SIOCGIFINDEX, &ifr0);
-	can0_addr.can_family = AF_CAN;
-	can0_addr.can_ifindex = ifr0.ifr_ifindex;
-	
-	bind(can0_fd, (struct sockaddr *)&can0_addr, sizeof(can0_addr));
+	char can_name[8] = {0};
+	sprintf(can_name, "can%d", can_ch);	
+	strcpy(ifr[can_ch].ifr_name, can_name);
 
-	pthread_t can0_rx_thrd;
+	ioctl(can_fd[can_ch], SIOCGIFINDEX, &ifr[can_ch]);
+	can_addr[can_ch].can_family = AF_CAN;
+	can_addr[can_ch].can_ifindex = ifr[can_ch].ifr_ifindex;
+	
+	bind(can_fd[can_ch], (struct sockaddr *)&can_addr[can_ch], sizeof(can_addr[can_ch]));
+
+	pthread_t can_rx_thrd;
 	int res;
 
-	res = pthread_create(&can0_rx_thrd, NULL, CAN0_loop_func, (void*)0);
+	res = pthread_create(&can_rx_thrd, NULL, CAN0_loop_func, (void*)0);
 	if (0 != res)
 	{
-		printf("Create CAN0 Rx thread error: %s (errno: %d)\r\n", strerror(errno), errno);
+		printf("Create CAN%d Rx thread error: %s (errno: %d)\r\n", can_ch, strerror(errno), errno);
 		return -1;
 	}
-	printf("Create CAN0 Rx thread success\r\n");
+	printf("Create CAN%d Rx thread success\r\n", can_ch);
 
 	return 0;
 }
 
 
-int CAN1_Init(void)
+void CAN0_DeInit(CAN_CHANNEL_E can_ch)
 {
-	CAN_DOWN(can1);
-	SetBaud(can1, 1000000);
-	CAN_UP(can1);
-
-	can1_fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-
-	if (-1 == can1_fd)
+	switch (can_ch)
 	{
-		printf("Create CAN1 socket error: %s (errno: %d)\r\n", strerror(errno), errno);
-		return -1;
-	}
-
-	strcpy(ifr1.ifr_name, "can1");
-
-	ioctl(can1_fd, SIOCGIFINDEX, &ifr1);
-
-	can1_addr.can_family = AF_CAN;
-	can1_addr.can_ifindex = ifr1.ifr_ifindex;
-	
-	bind(can1_fd, (struct sockaddr *)&can1_addr, sizeof(can1_addr));
-
-	pthread_t can1_rx_thrd;
-	int res;
-
-	res = pthread_create(&can1_rx_thrd, NULL, CAN1_loop_func, (void*)0);
-	if (0 != res)
-	{
-		printf("Create CAN1 Rx thread error: %s (errno: %d)\r\n", strerror(errno), errno);
-		return -1;
-	}
-	printf("Create CAN1 Rx thread success\r\n");
-
-	return 0;
-}
-
-void CAN0_DeInit(void)
-{
 	CAN_DOWN(can0);
 	close(can0_fd);
+	}
 }
-
-void CAN1_DeInit(void)
-{
-	CAN_DOWN(can1);
-	close(can1_fd);
-}
-
 
 void CAN_SetBaudrate(int baud)
 {
 }
 
-void CAN0_SendPacket(uint32_t ID, uint8_t dlc, uint8_t* data)
+void CAN0_SendPacket(uint32_t can_id, uint8_t can_dlc, uint8_t* data)
 {
-	memset(&can0_rx_frame, 0x00, sizeof(can0_rx_frame));
-	can0_rx_frame.can_id = ID;
-	can0_rx_frame.can_dlc = dlc;
-	memcpy(can0_rx_frame.data, data, dlc);
+	int nbytes;
+	can_frame can0_tx_frame;
 
-	nbytes = write(can0_fd, &can0_rx_frame, sizeof(can0_rx_frame));
-	if (nbytes != sizeof(can0_rx_frame))
+	memset(&can0_tx_frame, 0x00, sizeof(can0_tx_frame));
+	can0_tx_frame.can_id = can_id;
+	can0_tx_frame.can_dlc = can_dlc;
+	memcpy(can0_tx_frame.data, data, can_dlc);
+
+	nbytes = write(can0_fd, &can0_tx_frame, sizeof(can0_tx_frame));
+	if (nbytes != sizeof(can0_tx_frame))
 	{
 		printf("Send Error CAN0 frame\r\n");
 	}
 }
 
-void CAN_RecvPacket(void)
+void CAN1_SendPacket(uint32_t can_id, uint8_t can_dlc, uint8_t* data)
 {
+	int nbytes;
+	can_frame can1_tx_frame;
+
+	memset(&can1_tx_frame, 0x00, sizeof(can1_tx_frame));
+	can1_tx_frame.can_id = can_id;
+	can1_tx_frame.can_dlc = can_dlc;
+	memcpy(can1_tx_frame.data, data, can_dlc);
+
+	nbytes = write(can1_fd, &can1_rx_frame, sizeof(can1_tx_frame));
+	if (nbytes != sizeof(can1_tx_frame))
+	{
+		printf("Send Error CAN1 frame\r\n");
+	}
+}
+
+int CAN0_RecvPacket(uint32_t* can_id, uint8_t* can_dlc, uint8_t* data)
+{
+	if (true == can0_rx_flag)
+	{
+		can0_rx_flag = false;
+		*can_id = can0_rx_frame.can_id;
+		*can_dlc = can0_rx_frame.can_dlc;
+		memcpy(data, can0_rx_frame.data, *can_dlc);
+		return 1;
+	}
+	return 0;
+}
+
+int CAN1_RecvPacket(uint32_t* can_id, uint8_t* can_dlc, uint8_t* data)
+{
+	if (true == can1_rx_flag)
+	{
+		can1_rx_flag = false;
+		*can_id = can1_rx_frame.can_id;
+		*can_dlc = can1_rx_frame.can_dlc;
+		memcpy(data, can1_rx_frame.data, *can_dlc);
+		return 1;
+	}
+	return 0;
 }
 
 void* CAN0_loop_func(void* arg)
 {
+	socklen_t len;
+
 	printf("CAN0 Receive Thread is startting\r\n");
 
 	while(1)
 	{
 		memset(&can0_rx_frame, 0x00, sizeof(can0_rx_frame));
-		recvfrom(can0_fd, &can0_rx_frame, sizeof(can0_rx_frame), 0, can0_addr, NULL);
+		recvfrom(can0_fd, &can0_rx_frame, sizeof(can0_rx_frame), 0, (struct sockaddr *)&can0_addr, &len);
+		can0_rx_flag = true;
 		printf("%s\t%03X\t[%d]\t%02X %02X %02X %02X %02X %02X %02X %02X\r\n", ifr0.ifr_name, can0_rx_frame.can_id, can0_rx_frame.can_dlc, can0_rx_frame.data[0], can0_rx_frame.data[1], can0_rx_frame.data[2], can0_rx_frame.data[3], can0_rx_frame.data[4], can0_rx_frame.data[5], can0_rx_frame.data[6], can0_rx_frame.data[7]);
 	}
 	pthread_exit(NULL);
@@ -135,12 +153,15 @@ void* CAN0_loop_func(void* arg)
 
 void* CAN1_loop_func(void* arg)
 {
+	socklen_t len;
+
 	printf("CAN1 Receive Thread is startting\r\n");
 
 	while(1)
 	{
 		memset(&can1_rx_frame, 0x00, sizeof(can1_rx_frame));
-		recvfrom(can1_fd, &can1_rx_frame, sizeof(can1_rx_frame), 0, can1_addr, NULL);
+		recvfrom(can1_fd, &can1_rx_frame, sizeof(can1_rx_frame), 0, (struct sockaddr *)&can1_addr, &len);
+		can1_rx_flag = true;
 		printf("%s\t%03X\t[%d]\t%02X %02X %02X %02X %02X %02X %02X %02X\r\n", ifr1.ifr_name, can1_rx_frame.can_id, can1_rx_frame.can_dlc, can1_rx_frame.data[0], can1_rx_frame.data[1], can1_rx_frame.data[2], can1_rx_frame.data[3], can1_rx_frame.data[4], can1_rx_frame.data[5], can1_rx_frame.data[6], can1_rx_frame.data[7]);
 	}
 	pthread_exit(NULL);
