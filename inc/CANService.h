@@ -29,10 +29,12 @@ typedef enum CAN_CHANNEL_E
 
 
 int CAN_Init(CAN_CHANNEL_E can_ch);
-void CAN_DeInit(CAN_CHANNEL_E can_ch);
-void CAN_SetBaudrate(CAN_CHANNEL_E can_ch, int baud);
-void CAN_SendPacket(CAN_CHANNEL_E can_ch, uint32_t can_id, uint8_t can_dlc, uint8_t* data);
+int CAN_DeInit(CAN_CHANNEL_E can_ch);
+int CAN_SetBaudrate(CAN_CHANNEL_E can_ch, int baud);
+int CAN_SetMode(CAN_CHANNEL_E can_ch, uint8_t mode);
+int CAN_SendPacket(CAN_CHANNEL_E can_ch, uint32_t can_id, uint8_t can_dlc, uint8_t* data);
 int CAN_RecvPacket(CAN_CHANNEL_E can_ch, uint32_t* can_id, uint8_t* can_dlc, uint8_t* data);
+int CAN_GetStatus(CAN_CHANNEL_E can_ch);
 
 #endif
 
