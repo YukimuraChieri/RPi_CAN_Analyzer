@@ -41,16 +41,11 @@ int CAN_Init(CAN_CHANNEL_E can_ch)
 	}
 
 	char can_name[8] = {0};
-	struct hwtstamp_config hwconfig;
 
 	sprintf(can_name, "can%d", can_ch);	
 	strcpy(ifr[can_ch].ifr_name, can_name);
-	ifr[can_ch].tx_type = HWTSTAMP_TX_ON;
-	ifr[can_ch].rx_filter = HWTSTAMP_FILTER_ALL;
-	ifr[can_ch].ifr_data = (void*)&hwconfig;
 
-	// ioctl(can_fd[can_ch], SIOCGIFINDEX, &ifr[can_ch]);
-	ioctl(can_fd[can_ch], SIOCSHWTSTAMP, &ifr[can_ch]);
+	ioctl(can_fd[can_ch], SIOCGIFINDEX, &ifr[can_ch]);
 	can_addr[can_ch].can_family = AF_CAN;
 	can_addr[can_ch].can_ifindex = ifr[can_ch].ifr_ifindex;
 	
@@ -155,7 +150,7 @@ void* CAN_loop_func(void* arg)
 	socklen_t len;
 	uint8_t i;
 
-	printf("CAN%d Receive Thread is startting\r\n", can_ch);
+	printf("CAN%d Receive Thread is starting\r\n", can_ch);
 
 	while(1)
 	{

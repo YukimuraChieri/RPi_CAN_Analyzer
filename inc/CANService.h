@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "timestamp.h"
 
 
 #define SetBaud(can_ch, baud) system("ip link set "#can_ch" type can bitrate "#baud"")
