@@ -4,13 +4,18 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <errno.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include "CANService.h"
+#include "UDPService.h"
 
 
-void reset_timestamp(void);
-uint32_t get_timestamp(void);
+void Reset_Timestamp(void);
+uint32_t Get_Timestamp(void);
+int Task10ms_Init(void);
+void Task10ms(int sig);
 
 #endif
 

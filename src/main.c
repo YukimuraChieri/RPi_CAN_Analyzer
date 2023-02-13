@@ -8,30 +8,36 @@
 #include <pthread.h>
 #include "UDPService.h"
 #include "CANService.h"
-#include "timestamp.h"
+#include "Timer.h"
 
 
 #define msleep(tm) usleep(1000*tm)
 
-uint8_t send_buff[8] = {0};
-
 int main(int argc, char const *argv[])
 {
-	uint32_t timestamp = 0;
+	uint8_t send_buff[8] = {0};
+	uint8_t i;
 
-	// UDP_Init();
+	CAN_Rwlock_Init();
+	CAN_Buff_Init();
 	CAN_Init(CAN0_CH);
 	CAN_Init(CAN1_CH);
 
+	UDP_Init();
+	
 	printf("Link Start!\r\n");
 
-	reset_timestamp();
+	Reset_Timestamp();
+
+	Task10ms_Init();
 
 	while(1)
 	{
-		timestamp = get_timestamp();
-		printf("time stamp: %dms\r\n", timestamp);
-		memcpy(send_buff, (uint8_t *)&timestamp, 4);
+		send_buff[0]++;
+		for (i = 1; i < 8; i++)
+		{
+			send_buff[i] = send_buff[0] << i;
+		}
 		CAN_SendPacket(CAN0_CH, 0x201, 8, send_buff);
 		msleep(1000);
 	}

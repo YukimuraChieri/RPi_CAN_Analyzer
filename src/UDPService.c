@@ -2,30 +2,41 @@
 
 #define BUFF_SIZE 256
 #define SERVER_PORT 10001
-#define CLIENT_IP "192.168.2.26"
+#define CLIENT_PORT 10001
+#define SERVER_IP "192.168.2.26"
+#define CLIENT_IP "192.168.2.16"
 
 void* UDP_loop_func(void *arg);
 
 uint8_t buff[BUFF_SIZE];
-struct sockaddr_in servaddr;
-socklen_t sock_len = sizeof(servaddr);
-int udpfd;
+struct sockaddr_in srv_addr, cli_addr;
+socklen_t sock_len = sizeof(srv_addr);
+int sock_fd;
 
 int UDP_Init(void)
 {
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(SERVER_PORT);
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	srv_addr.sin_family = AF_INET;
+	srv_addr.sin_port = htons(SERVER_PORT);
+	// servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	srv_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+	
+	cli_addr.sin_family = AF_INET;
+	cli_addr.sin_port = htons(CLIENT_PORT);
+	cli_addr.sin_addr.s_addr = inet_addr(CLIENT_IP);
 
-	udpfd = socket(AF_INET, SOCK_DGRAM, 0);
+	sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
-	if (-1 == udpfd)
+	if (-1 == sock_fd)
 	{
 		printf("Create UDP socket error: %s (errno: %d)\r\n", strerror(errno), errno);
 		return -1;
 	}
 
-	bind(udpfd, (struct sockaddr*)&servaddr, sock_len);	
+	if (bind(sock_fd, (struct sockaddr*)&srv_addr, sock_len))
+	{
+		perror("bind");
+		return -1;
+	}
 
 	pthread_t udp_rx_thrd;
 	int res;
@@ -44,7 +55,7 @@ int UDP_Init(void)
 
 void UDP_SendPacket(uint8_t *data, uint16_t len)
 {
-	sendto(udpfd, data, len, 0, (struct sockaddr*)&servaddr, sock_len);
+	sendto(sock_fd, data, len, 0, (struct sockaddr*)&cli_addr, sock_len);
 }
 
 void* UDP_loop_func(void *arg)
@@ -54,8 +65,8 @@ void* UDP_loop_func(void *arg)
 	while(1)
 	{
 		memset(buff, 0x00, BUFF_SIZE);
-		recvfrom(udpfd, buff, BUFF_SIZE, 0, NULL, NULL);
-		printf("buff:%02X %02X\r\n", buff[0], buff[1]);
+		recvfrom(sock_fd, buff, BUFF_SIZE, 0, NULL, NULL);
+		// printf("buff:%02X %02X\r\n", buff[0], buff[1]);
 	}
 	pthread_exit(NULL);
 }
