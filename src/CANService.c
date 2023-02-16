@@ -13,7 +13,10 @@ CAN_RXBUFF_T CAN_Buff;
 int CAN_Init(CAN_CHANNEL_E can_ch)
 {
 	int res;
+	static CAN_CHANNEL_E can_ch_static[CAN_CH_NUM];
 
+	can_ch_static[can_ch] = can_ch;
+	
 	res = CAN_SetMode(can_ch, 0);
 	if (-1 == res)
 	{
@@ -51,7 +54,7 @@ int CAN_Init(CAN_CHANNEL_E can_ch)
 	
 	bind(can_fd[can_ch], (struct sockaddr *)&can_addr[can_ch], sizeof(can_addr[can_ch]));
 
-	res = pthread_create(&can_rx_thrd[can_ch], NULL, CAN_loop_func, (void*)can_ch);
+	res = pthread_create(&can_rx_thrd[can_ch], NULL, CAN_loop_func, (void*)(&can_ch_static[can_ch]));
 	if (0 != res)
 	{
 		printf("Create CAN%d Rx thread error: %s (errno: %d)\r\n", can_ch, strerror(errno), errno);
@@ -107,7 +110,7 @@ int CAN_SetMode(CAN_CHANNEL_E can_ch, uint8_t mode)
 	return system(cmd_str);
 }
 
-int CAN_SendPacket(CAN_CHANNEL_E can_ch, uint32_t can_id, uint8_t can_dlc, uint8_t* data)
+int CAN_SendPacket(CAN_CHANNEL_E can_ch, uint16_t can_id, uint8_t can_dlc, uint8_t* data)
 {
 	uint8_t i;
 	int nbytes;
@@ -135,7 +138,7 @@ int CAN_SendPacket(CAN_CHANNEL_E can_ch, uint32_t can_id, uint8_t can_dlc, uint8
 	return 0;
 }
 
-int CAN_RecvPacket(CAN_CHANNEL_E can_ch, uint32_t* can_id, uint8_t* can_dlc, uint8_t* data)
+int CAN_RecvPacket(CAN_CHANNEL_E can_ch, uint16_t* can_id, uint8_t* can_dlc, uint8_t* data)
 {
 	pthread_rwlock_rdlock(&rwlock);
 
@@ -147,7 +150,7 @@ int CAN_RecvPacket(CAN_CHANNEL_E can_ch, uint32_t* can_id, uint8_t* can_dlc, uin
 
 void* CAN_loop_func(void* arg)
 {
-	CAN_CHANNEL_E can_ch = (CAN_CHANNEL_E)arg;
+	CAN_CHANNEL_E can_ch = *( (CAN_CHANNEL_E*)arg );
 	CAN_FRAME_T frame_info;
 	struct can_frame can_rx_frame;
 	socklen_t len;
@@ -174,6 +177,8 @@ void* CAN_loop_func(void* arg)
 		printf("\r\n");
 	}
 	pthread_exit(NULL);
+
+	return 0;
 }
 
 void CAN_Buff_Init(void)
@@ -195,7 +200,6 @@ int CAN_Read_Buff(CAN_FRAME_T* frame)
 		*frame = CAN_Buff.buff[CAN_Buff.head];
 		CAN_Buff.head = (CAN_Buff.head + 1) % CAN_RX_BUFFSIZE;
 		CAN_Buff.len--;
-		pthread_rwlock_unlock(&rwlock);
 	}
 
 	pthread_rwlock_unlock(&rwlock);
@@ -226,5 +230,9 @@ int CAN_Write_Buff(CAN_FRAME_T frame)
 
 uint16_t GetBuffLength(void)
 {
-	return CAN_Buff.len;
+	uint16_t len = 0;
+	pthread_rwlock_rdlock(&rwlock);
+	len = CAN_Buff.len;
+	pthread_rwlock_unlock(&rwlock);
+	return len;
 }

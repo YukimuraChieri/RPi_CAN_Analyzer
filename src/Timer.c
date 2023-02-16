@@ -1,6 +1,7 @@
 #include "Timer.h"
 
 struct timeval start_time;
+pthread_t task_10ms_thrd;
 
 void Reset_Timestamp(void)
 {
@@ -18,29 +19,53 @@ uint32_t Get_Timestamp(void)
 	return timestamp;
 }
 
-
-int Task10ms_Init(void)
+void* Task_Create_thrd(void* arg)
 {
-	struct itimerval it;
-	int res;
-	
-	it.it_value.tv_sec = 0;
-	it.it_value.tv_usec = 500000;
-	it.it_interval = it.it_value;
+	struct itimerval* point_it;
 
-	res = setitimer(ITIMER_REAL, &it, NULL);
-	
-	if (-1 == res)
+	point_it = (struct itimerval*)arg;
+
+	if (-1 == setitimer(ITIMER_REAL, point_it, NULL))
 	{
 		perror("setitimer");
-		return -1;
+		pthread_exit(NULL);
 	}
 
 	if (SIG_ERR == signal(SIGALRM, Task10ms))
 	{
 		perror("signal");
+		pthread_exit(NULL);
+	}
+
+	while(1);
+	pthread_exit(NULL);
+
+	return 0;
+}
+
+
+int Task10ms_Init(void)
+{
+	int res;
+	static struct itimerval it;
+	it.it_value.tv_sec = 0;
+	it.it_value.tv_usec = 200000;
+	it.it_interval = it.it_value;
+	printf("test adddr:%p\r\n", &it);
+	
+	res = pthread_create(&task_10ms_thrd, NULL, Task_Create_thrd, (void*)(&it));
+	if (0 != res)
+	{
+		printf("Create task 10ms thread error: %s (errno: %d)\r\n", strerror(errno), errno);
 		return -1;
 	}
+	printf("Create task 10ms thread success\r\n");
+	pthread_detach(task_10ms_thrd);
+
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGALRM);
+	pthread_sigmask(SIG_SETMASK, &set, NULL);
 
 	return 0;
 }
@@ -50,13 +75,14 @@ uint8_t tx_datagram[4096] = {0};
 void Task10ms(int sig)
 {
 	uint16_t can_frame_num = GetBuffLength();
-	uint16_t i, index = 4, crc;
+	uint16_t i, index = 4, crc = 0;
 	CAN_FRAME_T can_frame_info;
+	printf("[Task10ms]:\r\n");
 
 	// head
 	tx_datagram[0] = 0xA5;
 	tx_datagram[1] = 0xC3;
-	// number of can frames
+	// number of can framesi, Little Endian Mode
 	memcpy(&tx_datagram[2], &can_frame_num, 2);
 
 	for (i = 0 ; i < can_frame_num; i++)
@@ -67,8 +93,8 @@ void Task10ms(int sig)
 		index += 4;
 		tx_datagram[index++] = can_frame_info.can_ch;
 
-		memcpy(&tx_datagram[index], &can_frame_info.frame.can_id, 4);
-		index += 4;
+		memcpy(&tx_datagram[index], &can_frame_info.frame.can_id, 2);
+		index += 2;
 
 		tx_datagram[index++] = can_frame_info.frame.can_dlc;
 
@@ -78,6 +104,7 @@ void Task10ms(int sig)
 	}
 
 	// CRC
+	crc = crc16_ibm(tx_datagram+4, index-4);
 	memcpy(&tx_datagram[index], &crc, 2);
 	index += 2;
 	// tail

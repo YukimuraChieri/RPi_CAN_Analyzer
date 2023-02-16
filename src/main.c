@@ -38,8 +38,9 @@ int main(int argc, char const *argv[])
 		{
 			send_buff[i] = send_buff[0] << i;
 		}
-		CAN_SendPacket(CAN0_CH, 0x201, 8, send_buff);
-		msleep(1000);
+		CAN_SendPacket(CAN1_CH, 0x201, 8, send_buff);
+		printf("[main loop]:%ld\r\n", time(NULL));
+		msleep(3000);
 	}
 
 	return 0;

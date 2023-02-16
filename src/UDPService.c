@@ -1,10 +1,10 @@
 #include "UDPService.h"
 
-#define BUFF_SIZE 256
-#define SERVER_PORT 10001
+#define BUFF_SIZE 1024
+#define SERVER_PORT 10000
 #define CLIENT_PORT 10001
-#define SERVER_IP "192.168.2.26"
-#define CLIENT_IP "192.168.2.16"
+#define SERVER_IP "192.168.43.165"
+#define CLIENT_IP "192.168.43.198"
 
 void* UDP_loop_func(void *arg);
 
@@ -15,7 +15,7 @@ int sock_fd;
 
 int UDP_Init(void)
 {
-	srv_addr.sin_family = AF_INET;
+	srv_addr.sin_family = AF_INET;	// ipv4
 	srv_addr.sin_port = htons(SERVER_PORT);
 	// servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	srv_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
@@ -52,7 +52,6 @@ int UDP_Init(void)
 	return 0;
 }
 
-
 void UDP_SendPacket(uint8_t *data, uint16_t len)
 {
 	sendto(sock_fd, data, len, 0, (struct sockaddr*)&cli_addr, sock_len);
@@ -60,15 +59,20 @@ void UDP_SendPacket(uint8_t *data, uint16_t len)
 
 void* UDP_loop_func(void *arg)
 {
+	socklen_t socklen;
+	int recvlen = 0;
 	printf("Udp Receive Thread is startting\r\n");
 
 	while(1)
 	{
 		memset(buff, 0x00, BUFF_SIZE);
-		recvfrom(sock_fd, buff, BUFF_SIZE, 0, NULL, NULL);
+		recvlen = recvfrom(sock_fd, buff, BUFF_SIZE, 0, (struct sockaddr*)&cli_addr, &socklen);
 		// printf("buff:%02X %02X\r\n", buff[0], buff[1]);
+		printf("[udp recv len]: %d\r\n", recvlen);
 	}
 	pthread_exit(NULL);
+
+	return 0;
 }
 
 

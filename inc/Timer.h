@@ -8,8 +8,10 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "CANService.h"
 #include "UDPService.h"
+#include "crcLib.h"
 
 
 void Reset_Timestamp(void);
