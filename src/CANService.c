@@ -4,7 +4,7 @@ void* CAN_loop_func(void* arg);
 
 int can_fd[CAN_CH_NUM];
 struct sockaddr_can can_addr[CAN_CH_NUM];
-struct ifreq ifr[CAN_CH_NUM];
+struct ifreq can_ifr[CAN_CH_NUM];
 pthread_t can_rx_thrd[CAN_CH_NUM];
 pthread_rwlock_t rwlock;
 
@@ -44,13 +44,12 @@ int CAN_Init(CAN_CHANNEL_E can_ch)
 	}
 
 	char can_name[8] = {0};
-
 	sprintf(can_name, "can%d", can_ch);	
-	strcpy(ifr[can_ch].ifr_name, can_name);
+	strcpy(can_ifr[can_ch].ifr_name, can_name);
 
-	ioctl(can_fd[can_ch], SIOCGIFINDEX, &ifr[can_ch]);
+	ioctl(can_fd[can_ch], SIOCGIFINDEX, &can_ifr[can_ch]);
 	can_addr[can_ch].can_family = AF_CAN;
-	can_addr[can_ch].can_ifindex = ifr[can_ch].ifr_ifindex;
+	can_addr[can_ch].can_ifindex = can_ifr[can_ch].ifr_ifindex;
 	
 	bind(can_fd[can_ch], (struct sockaddr *)&can_addr[can_ch], sizeof(can_addr[can_ch]));
 
@@ -60,6 +59,7 @@ int CAN_Init(CAN_CHANNEL_E can_ch)
 		printf("Create CAN%d Rx thread error: %s (errno: %d)\r\n", can_ch, strerror(errno), errno);
 		return -1;
 	}
+	pthread_detach(can_rx_thrd[can_ch]);
 	printf("Create CAN%d Rx thread success\r\n", can_ch);
 
 	return 0;
@@ -67,8 +67,11 @@ int CAN_Init(CAN_CHANNEL_E can_ch)
 
 int CAN_DeInit(CAN_CHANNEL_E can_ch)
 {
+	pthread_cancel(can_rx_thrd[can_ch]);
+	pthread_join(can_rx_thrd[can_ch], NULL);
 	CAN_SetMode(can_ch, 0);
 	close(can_fd[can_ch]);
+	printf("CAN%d Thread Cancel\r\n", can_ch);
 	return 0;
 }
 
@@ -129,7 +132,7 @@ int CAN_SendPacket(CAN_CHANNEL_E can_ch, uint16_t can_id, uint8_t can_dlc, uint8
 		return -1;
 	}
 	timestamp = Get_Timestamp();
-	printf("(%06d):\t%s\ttx\t%03X\t[%d]\t", timestamp, ifr[can_ch].ifr_name, can_tx_frame.can_id, can_tx_frame.can_dlc);
+	printf("(%06d):\t%s\ttx\t%03X\t[%d]\t", timestamp, can_ifr[can_ch].ifr_name, can_tx_frame.can_id, can_tx_frame.can_dlc);
 	for (i = 0; i < can_tx_frame.can_dlc; i++)
 	{
 		printf("%02X ", can_tx_frame.data[i]);
@@ -169,15 +172,14 @@ void* CAN_loop_func(void* arg)
 
 		CAN_Write_Buff(frame_info);
 
-		printf("(%06d):\t%s\trx\t%03X\t[%d]\t",frame_info.timestamp, ifr[can_ch].ifr_name, can_rx_frame.can_id, can_rx_frame.can_dlc);
+		printf("(%06d):\t%s\trx\t%03X\t[%d]\t",frame_info.timestamp, can_ifr[can_ch].ifr_name, can_rx_frame.can_id, can_rx_frame.can_dlc);
 		for (i = 0; i < can_rx_frame.can_dlc; i++)
 		{
 			printf("%02X ", can_rx_frame.data[i]);
 		}
 		printf("\r\n");
 	}
-	pthread_exit(NULL);
-
+	pthread_exit((void*)0);
 	return 0;
 }
 

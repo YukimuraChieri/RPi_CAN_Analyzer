@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -16,6 +17,9 @@
 int UDP_Init(void);
 void UDP_SendPacket(uint8_t *data, uint16_t len);
 void UDP_RecvPacket(void);
+
+void Print_All_Net_Info(void);
+in_addr_t Get_WLAN0_Addr(void);
 
 #endif
 

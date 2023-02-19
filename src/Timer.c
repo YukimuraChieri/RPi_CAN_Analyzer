@@ -25,21 +25,24 @@ void* Task_Create_thrd(void* arg)
 
 	point_it = (struct itimerval*)arg;
 
-	if (-1 == setitimer(ITIMER_REAL, point_it, NULL))
+	if (0 != setitimer(ITIMER_REAL, point_it, NULL))
 	{
 		perror("setitimer");
-		pthread_exit(NULL);
+		pthread_exit((void*)-1);
 	}
 
 	if (SIG_ERR == signal(SIGALRM, Task10ms))
 	{
 		perror("signal");
-		pthread_exit(NULL);
+		pthread_exit((void*)-1);
 	}
-
-	while(1);
-	pthread_exit(NULL);
-
+	
+	while(1)
+	{
+		pause();
+	}
+	
+	pthread_exit((void*)0);
 	return 0;
 }
 
@@ -49,9 +52,8 @@ int Task10ms_Init(void)
 	int res;
 	static struct itimerval it;
 	it.it_value.tv_sec = 0;
-	it.it_value.tv_usec = 200000;
+	it.it_value.tv_usec = 250000;
 	it.it_interval = it.it_value;
-	printf("test adddr:%p\r\n", &it);
 	
 	res = pthread_create(&task_10ms_thrd, NULL, Task_Create_thrd, (void*)(&it));
 	if (0 != res)
@@ -70,14 +72,39 @@ int Task10ms_Init(void)
 	return 0;
 }
 
-uint8_t tx_datagram[4096] = {0};
+int Task10ms_Start(void)
+{
+	struct itimerval it;
+	it.it_value.tv_sec = 0;
+	it.it_value.tv_usec = 250000;
+	it.it_interval = it.it_value;
+	return setitimer(ITIMER_REAL, &it, NULL);
+}
+
+int Task10ms_Cancel(void)
+{
+	struct itimerval it;
+	it.it_value.tv_sec = 0;
+	it.it_value.tv_usec = 0;
+	it.it_interval = it.it_value;
+	return setitimer(ITIMER_REAL, &it, NULL);
+}
 
 void Task10ms(int sig)
 {
+	static uint8_t tx_datagram[4096] = {0};
 	uint16_t can_frame_num = GetBuffLength();
-	uint16_t i, index = 4, crc = 0;
+	uint16_t send_max_num = (sizeof(tx_datagram)-8)/16;
+	uint16_t index = 4, crc = 0;
+	uint16_t temp_u16;
+	uint32_t temp_u32;
 	CAN_FRAME_T can_frame_info;
-	printf("[Task10ms]:\r\n");
+	printf("[Task10ms]:%06d\r\n", Get_Timestamp());
+
+	if (can_frame_num > send_max_num)
+	{
+		can_frame_num = send_max_num;
+	}
 
 	// head
 	tx_datagram[0] = 0xA5;
@@ -85,26 +112,29 @@ void Task10ms(int sig)
 	// number of can framesi, Little Endian Mode
 	memcpy(&tx_datagram[2], &can_frame_num, 2);
 
-	for (i = 0 ; i < can_frame_num; i++)
+	for (int n = 0 ; n < can_frame_num; n++)
 	{
 		CAN_Read_Buff(&can_frame_info);
 
-		memcpy(&tx_datagram[index], &can_frame_info.timestamp, 4);
+		temp_u32 = htonl(can_frame_info.timestamp);
+		memcpy(&tx_datagram[index], &temp_u32, 4);
 		index += 4;
-		tx_datagram[index++] = can_frame_info.can_ch;
 
-		memcpy(&tx_datagram[index], &can_frame_info.frame.can_id, 2);
+		tx_datagram[index++] = can_frame_info.can_ch;
+		
+		temp_u16 = htons(can_frame_info.frame.can_id);
+		memcpy(&tx_datagram[index], &temp_u16, 2);
 		index += 2;
 
 		tx_datagram[index++] = can_frame_info.frame.can_dlc;
 
 		memcpy(&tx_datagram[index], &can_frame_info.frame.data, 8);
 		index += 8;
-
 	}
 
 	// CRC
-	crc = crc16_ibm(tx_datagram+4, index-4);
+	uint16_t len = can_frame_num * 16;
+	crc = crc16_ibm(tx_datagram+4, len);
 	memcpy(&tx_datagram[index], &crc, 2);
 	index += 2;
 	// tail

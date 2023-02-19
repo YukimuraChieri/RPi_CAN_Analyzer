@@ -19,7 +19,7 @@
 #define CAN_UP(can_ch) system("ifconfig "#can_ch" up")
 #define CAN_DOWN(can_ch) system("ifconfig "#can_ch" down")
 
-#define CAN_RX_BUFFSIZE 128
+#define CAN_RX_BUFFSIZE 256
 
 typedef enum CAN_CHANNEL_E
 {

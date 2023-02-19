@@ -17,6 +17,8 @@
 void Reset_Timestamp(void);
 uint32_t Get_Timestamp(void);
 int Task10ms_Init(void);
+int Task10ms_Start(void);
+int Task10ms_Cancel(void);
 void Task10ms(int sig);
 
 #endif
