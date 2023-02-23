@@ -92,7 +92,7 @@ int Task10ms_Cancel(void)
 
 void Task10ms(int sig)
 {
-	static uint8_t tx_datagram[4096] = {0};
+	static uint8_t tx_datagram[1024] = {0};
 	uint16_t can_frame_num = GetBuffLength();
 	uint16_t send_max_num = (sizeof(tx_datagram)-8)/16;
 	uint16_t index = 4, crc = 0;
@@ -110,7 +110,8 @@ void Task10ms(int sig)
 	tx_datagram[0] = 0xA5;
 	tx_datagram[1] = 0xC3;
 	// number of can framesi, Little Endian Mode
-	memcpy(&tx_datagram[2], &can_frame_num, 2);
+	temp_u16 = htons(can_frame_num);
+	memcpy(&tx_datagram[2], &temp_u16, 2);
 
 	for (int n = 0 ; n < can_frame_num; n++)
 	{

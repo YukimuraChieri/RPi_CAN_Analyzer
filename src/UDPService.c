@@ -5,8 +5,8 @@
 #define BUFF_SIZE 1024
 #define SERVER_PORT 10000
 #define CLIENT_PORT 10001
-#define SERVER_IP "192.168.2.16"
-#define CLIENT_IP "192.168.2.26"
+#define SERVER_IP "192.168.43.165"
+#define CLIENT_IP "192.168.43.198"
 
 void* UDP_loop_func(void *arg);
 
@@ -15,6 +15,7 @@ struct sockaddr_in srv_addr, cli_addr;
 socklen_t sock_len = sizeof(srv_addr);
 struct ifreq wlan_ifr;
 int sock_fd;
+pthread_t udp_rx_thrd;
 
 void Print_All_Net_Info(void)
 {
@@ -38,58 +39,108 @@ void Print_All_Net_Info(void)
 		printf("mtu %u\r\n", p_ifr->ifr_ifru.ifru_flags?:65536);
 
 		ioctl(sock, SIOCGIFADDR, p_ifr);
-		ioctl(sock, SIOCGIFNETMASK, p_ifr);
-		ioctl(sock, SIOCGIFBRDADDR, p_ifr);
 		inet_ntop(AF_INET, &(((struct sockaddr_in *)&(p_ifr->ifr_addr))->sin_addr.s_addr), buf, sizeof(buf));
 		printf("\tinet: %s ", buf);
+		ioctl(sock, SIOCGIFNETMASK, p_ifr);
 		inet_ntop(AF_INET, &(((struct sockaddr_in *)&(p_ifr->ifr_netmask))->sin_addr.s_addr), buf, sizeof(buf));
 		printf("netmask: %s ", buf);
+		ioctl(sock, SIOCGIFBRDADDR, p_ifr);
 		inet_ntop(AF_INET, &(((struct sockaddr_in *)&(p_ifr->ifr_broadaddr))->sin_addr.s_addr), buf, sizeof(buf));
 		printf("broadcast: %s\r\n", buf);
 
 		printf("\r\n");
 	}
+	close(sock);
 }
 
-in_addr_t Get_WLAN0_Addr(void)
+/*
+获取无线网卡的连接状态
+(/proc/net/wireless的status)
+return 0:未连接
+return 1:已连接
+*/
+int Get_Wireless_If_Status(int sock, char *ath)
+{
+    int ret = 0;
+    struct iwreq iwr;
+    struct iw_statistics stats;
+
+    if (NULL == ath)
+    {
+        printf("ath is NULL\r\n");
+        return -1;
+    }
+
+    /* make socket fd */
+    if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) == -1)
+    {
+        printf("socket err\r\n");
+        return -1;
+    }
+
+    /* make iwreq */
+    memset(&iwr, 0, sizeof(iwr));
+    memset(&stats, 0, sizeof(stats));
+    iwr.u.data.pointer = (caddr_t) &stats; /* result value */
+    iwr.u.data.length = sizeof(stats);
+    iwr.u.data.flags = 1; /* clear updated flag */
+
+    /* ifname is reqired */
+    strncpy(iwr.ifr_ifrn.ifrn_name, ath, IFNAMSIZ - 1);
+
+    /* get SIOCGIWSTATS */
+    if (ioctl(sock, SIOCGIWSTATS, &iwr) < 0)
+    {
+        printf("No Such Device %s\r\n",ath);
+        return -1;
+    }
+
+    ret = stats.status;
+
+    return ret;
+}
+
+in_addr_t Get_Wireless_If_Addr(int sock, char *ath)
 {
 	struct ifreq interfaces[8];
-	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	struct ifconf ifconf = {
 		.ifc_len = sizeof(interfaces),
 		.ifc_req = interfaces,
 	};
+    
+    if (NULL == ath)
+    {
+        printf("ath is NULL\r\n");
+        return -1;
+    }
+
 	ioctl(sock, SIOCGIFCONF, &ifconf);
 	int num = ifconf.ifc_len/sizeof(struct ifreq);
 	struct ifreq *p_ifr =  interfaces;
-	in_addr_t wlan0_addr = 0;
+	in_addr_t wireless_addr = 0;
 	char buf[32];
 	for (int i = 0; i < num; i++, p_ifr++)
 	{
-		if (0 == strcmp(p_ifr->ifr_name, "wlan0"))
+		if (0 == strcmp(p_ifr->ifr_name, ath))
 		{
 			ioctl(sock, SIOCGIFADDR, p_ifr);
-			wlan0_addr = ((struct sockaddr_in *)&(p_ifr->ifr_addr))->sin_addr.s_addr;
-			inet_ntop(AF_INET, &wlan0_addr, buf, sizeof(buf));
-			printf("WLAN0 inet: %s\r\n", buf);
+			wireless_addr = ((struct sockaddr_in *)&(p_ifr->ifr_addr))->sin_addr.s_addr;
+			inet_ntop(AF_INET, &wireless_addr, buf, sizeof(buf));
+			printf("%s inet: %s\r\n", ath, buf);
 		}
 	}
-	return wlan0_addr;
+	return wireless_addr;
 }
 
 
 int UDP_Init(void)
 {
+	sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
 	srv_addr.sin_family = AF_INET;	// ipv4
 	srv_addr.sin_port = htons(SERVER_PORT);
-	// servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	srv_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
-	
-	cli_addr.sin_family = AF_INET;
-	cli_addr.sin_port = htons(CLIENT_PORT);
-	cli_addr.sin_addr.s_addr = inet_addr(CLIENT_IP);
-
-	sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+	// srv_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+    srv_addr.sin_addr.s_addr = Get_Wireless_If_Addr(sock_fd, "wlan0");
 
 	memset(&wlan_ifr, 0x00, sizeof(wlan_ifr));
 	strcpy(wlan_ifr.ifr_name, "wlan0");
@@ -109,7 +160,6 @@ int UDP_Init(void)
 		return -1;
 	}
 
-	pthread_t udp_rx_thrd;
 	int res;
 
 	res = pthread_create(&udp_rx_thrd, NULL, UDP_loop_func, (void*)0);
@@ -118,9 +168,19 @@ int UDP_Init(void)
 		printf("Create thread error: %s (errno: %d)\r\n", strerror(errno), errno);
 		return -1;
 	}
+    pthread_detach(udp_rx_thrd);
 	printf("Create thread success\r\n");
 
 	return 0;
+}
+
+int UDP_DeInit(void)
+{
+    pthread_cancel(udp_rx_thrd);
+    pthread_join(udp_rx_thrd, NULL);
+    close(sock_fd);
+    printf("UDP DeInit\r\n");
+    return 0;
 }
 
 void UDP_SendPacket(uint8_t *data, uint16_t len)

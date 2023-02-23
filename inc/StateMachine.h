@@ -3,16 +3,25 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include "CAN_Service.h"
+#include "UDP_Service.h"
 
 typedef enum
 {
-	NetState_Disconnect = 0,
-	NetState_RampingConnect,
-	NetState_Connect,
-	NetState_RampingDisconnect,
+	Wireless_Disconnect = 0,
+	Wireless_Connect,
+    Wireless_Default,
 }NET_STATUS_E;
 
-void NetConnectControl(void);
+typedef enum
+{
+    Client_Start = 0,
+    Client_Stop,
+    Client_Default,
+}CLI_STATUS_E;
+
+
+void State_Machine(void);
 
 #endif
 

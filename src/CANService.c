@@ -71,7 +71,7 @@ int CAN_DeInit(CAN_CHANNEL_E can_ch)
 	pthread_join(can_rx_thrd[can_ch], NULL);
 	CAN_SetMode(can_ch, 0);
 	close(can_fd[can_ch]);
-	printf("CAN%d Thread Cancel\r\n", can_ch);
+	printf("CAN%d DeInit\r\n", can_ch);
 	return 0;
 }
 

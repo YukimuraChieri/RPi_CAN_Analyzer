@@ -18,8 +18,8 @@ int main(int argc, char const *argv[])
 	uint8_t send_buff[8] = {0};
 	uint8_t i;
 
-	Get_WLAN0_Addr();
-	/*
+	// Print_All_Net_Info();
+	
 	CAN_Rwlock_Init();
 	CAN_Buff_Init();
 	CAN_Init(CAN0_CH);
@@ -44,7 +44,6 @@ int main(int argc, char const *argv[])
 		printf("[main loop]:%ld\r\n", time(NULL));
 		msleep(3000);
 	}
-	*/
 
 	return 0;
 }

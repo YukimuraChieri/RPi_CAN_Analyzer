@@ -1,35 +1,71 @@
 #include "StateMachine.h"
 
 
-void NetConnectControl(void)
+void State_Machine(void)
 {
-	static NET_STATUS_E currentState = NetState_Disconnect;
+	static NET_STATUS_E wirelessState = Wireless_Default;
+    static CLI_STATUS_E clientState = Client_Default;
 	static uint16_t timer_u16;
 
-	switch(currentState)
+	switch(wirelessState)
 	{
-		case NetState_Disconnect: {
-			if (0)
+		case Wireless_Disconnect: {
+			if (0 == Get_Wireless_If_Status())
 			{
-				currentState = NetState_Connect;
+				wirelessState = Wireless_Connect;
 			}
 		}
 		break;
-		case NetState_RampingConnect: {
-		}
-		break;
-		case NetState_Connect: {
-			if (0)
+
+		case Wireless_Connect: {
+			if (0 != Get_Wireless_If_Status())
 			{
-				currentState = NetState_Disconnect;
+				wirelessState = Wireless_Disconnect;
+                UDP_DeInit();
 			}
+            switch(clientState)
+            {
+                case Client_Start: {
+                    if (0)
+                    {
+                        clientState = Client_Stop;
+                        CAN_DeInit(CAN0_CH);
+                        CAN_DeInit(CAN1_CH);
+                    }
+                }
+                break;
+
+                case Client_Stop: {
+                    if (0)
+                    {
+                        clientState = Client_Start;
+	                    CAN_Rwlock_Init();
+	                    CAN_Buff_Init();
+                        CAN_Init(CAN0_CH);
+                        CAN_Init(CAN1_CH);
+	                    Reset_Timestamp();
+                    }
+                }
+                break;
+
+                defalut: {
+                    clientState = Client_Stop;
+                }
+                break;
+            }
 		}
 		break;
-		case NetState_RampingDisconnect: {
-		}
-		break;
-		default: {
-			currentState = NetState_Disconnect;
+		
+        default: {
+            if (0 == Get_Wireless_If_Status())
+            {
+			    wirelessState = Wireless_Connect;
+                UDP_Init();
+            }
+            else
+            {
+			    wirelessState = Wireless_Disconnect;
+            }
 		}
 		break;
 	}
