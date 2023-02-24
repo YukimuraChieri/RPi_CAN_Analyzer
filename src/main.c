@@ -6,9 +6,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "UDPService.h"
-#include "CANService.h"
-#include "Timer.h"
+#include "UDP_Services.h"
+#include "CAN_Services.h"
+#include "Task10ms.h"
 
 
 #define msleep(tm) usleep(1000*tm)
@@ -20,8 +20,8 @@ int main(int argc, char const *argv[])
 
 	// Print_All_Net_Info();
 	
-	CAN_Rwlock_Init();
-	CAN_Buff_Init();
+	CAN_RxBuff_Init();
+	CAN_TxBuff_Init();
 	CAN_Init(CAN0_CH);
 	CAN_Init(CAN1_CH);
 

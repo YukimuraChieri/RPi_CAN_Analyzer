@@ -10,7 +10,7 @@ void State_Machine(void)
 	switch(wirelessState)
 	{
 		case Wireless_Disconnect: {
-			if (0 == Get_Wireless_If_Status())
+			if (0 == Get_Wireless_If_Status("wlan0"))
 			{
 				wirelessState = Wireless_Connect;
 			}
@@ -18,7 +18,7 @@ void State_Machine(void)
 		break;
 
 		case Wireless_Connect: {
-			if (0 != Get_Wireless_If_Status())
+			if (0 != Get_Wireless_If_Status("wlan0"))
 			{
 				wirelessState = Wireless_Disconnect;
                 UDP_DeInit();
@@ -31,6 +31,8 @@ void State_Machine(void)
                         clientState = Client_Stop;
                         CAN_DeInit(CAN0_CH);
                         CAN_DeInit(CAN1_CH);
+	                    CAN_RxBuff_DeInit();
+	                    CAN_TxBuff_DeInit();
                     }
                 }
                 break;
@@ -39,8 +41,8 @@ void State_Machine(void)
                     if (0)
                     {
                         clientState = Client_Start;
-	                    CAN_Rwlock_Init();
-	                    CAN_Buff_Init();
+	                    CAN_RxBuff_Init();
+	                    CAN_TxBuff_Init();
                         CAN_Init(CAN0_CH);
                         CAN_Init(CAN1_CH);
 	                    Reset_Timestamp();
@@ -57,7 +59,7 @@ void State_Machine(void)
 		break;
 		
         default: {
-            if (0 == Get_Wireless_If_Status())
+            if (0 == Get_Wireless_If_Status("wlan0"))
             {
 			    wirelessState = Wireless_Connect;
                 UDP_Init();

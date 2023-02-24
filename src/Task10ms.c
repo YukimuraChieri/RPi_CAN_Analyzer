@@ -1,4 +1,4 @@
-#include "Timer.h"
+#include "Task10ms.h"
 
 struct timeval start_time;
 pthread_t task_10ms_thrd;
@@ -93,12 +93,12 @@ int Task10ms_Cancel(void)
 void Task10ms(int sig)
 {
 	static uint8_t tx_datagram[1024] = {0};
-	uint16_t can_frame_num = GetBuffLength();
+	uint16_t can_frame_num = CAN_GetRxBuffLength();
 	uint16_t send_max_num = (sizeof(tx_datagram)-8)/16;
 	uint16_t index = 4, crc = 0;
 	uint16_t temp_u16;
 	uint32_t temp_u32;
-	CAN_FRAME_T can_frame_info;
+	CAN_RxFrame_T can_frame_info;
 	printf("[Task10ms]:%06d\r\n", Get_Timestamp());
 
 	if (can_frame_num > send_max_num)
@@ -115,7 +115,7 @@ void Task10ms(int sig)
 
 	for (int n = 0 ; n < can_frame_num; n++)
 	{
-		CAN_Read_Buff(&can_frame_info);
+		CAN_Read_RxBuff(&can_frame_info);
 
 		temp_u32 = htonl(can_frame_info.timestamp);
 		memcpy(&tx_datagram[index], &temp_u32, 4);

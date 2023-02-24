@@ -1,14 +1,11 @@
-#include "CANService.h"
+#include "CAN_Services.h"
 
-void* CAN_loop_func(void* arg);
+void* CAN_receive(void* arg);
 
 int can_fd[CAN_CH_NUM];
 struct sockaddr_can can_addr[CAN_CH_NUM];
 struct ifreq can_ifr[CAN_CH_NUM];
 pthread_t can_rx_thrd[CAN_CH_NUM];
-pthread_rwlock_t rwlock;
-
-CAN_RXBUFF_T CAN_Buff;
 
 int CAN_Init(CAN_CHANNEL_E can_ch)
 {
@@ -53,7 +50,7 @@ int CAN_Init(CAN_CHANNEL_E can_ch)
 	
 	bind(can_fd[can_ch], (struct sockaddr *)&can_addr[can_ch], sizeof(can_addr[can_ch]));
 
-	res = pthread_create(&can_rx_thrd[can_ch], NULL, CAN_loop_func, (void*)(&can_ch_static[can_ch]));
+	res = pthread_create(&can_rx_thrd[can_ch], NULL, CAN_receive, (void*)(&can_ch_static[can_ch]));
 	if (0 != res)
 	{
 		printf("Create CAN%d Rx thread error: %s (errno: %d)\r\n", can_ch, strerror(errno), errno);
@@ -75,26 +72,6 @@ int CAN_DeInit(CAN_CHANNEL_E can_ch)
 	return 0;
 }
 
-int CAN_Rwlock_Init(void)
-{
-	int res;
-	res = pthread_rwlock_init(&rwlock, NULL);
-	if (0 != res)
-	{
-		printf("Create CAN rwlock error: %s (errno: %d)\r\n", strerror(errno), errno);
-		return -1;
-	}
-	printf("Create CAN rwlock success\r\n");
-
-	return 0;
-}
-
-int CAN_Rwlock_DeInit(void)
-{
-	pthread_rwlock_destroy(&rwlock);
-	return 0;
-}
-
 int CAN_SetBaudrate(CAN_CHANNEL_E can_ch, int baud)
 {
 	char cmd_str[64];
@@ -104,7 +81,7 @@ int CAN_SetBaudrate(CAN_CHANNEL_E can_ch, int baud)
 
 int CAN_SetMode(CAN_CHANNEL_E can_ch, uint8_t mode)
 {
-	char cmd_str[64];
+	char cmd_str[32];
 	switch (mode)
 	{
 		case 0: sprintf(cmd_str, "ifconfig can%d down", can_ch); break;
@@ -143,18 +120,13 @@ int CAN_SendPacket(CAN_CHANNEL_E can_ch, uint16_t can_id, uint8_t can_dlc, uint8
 
 int CAN_RecvPacket(CAN_CHANNEL_E can_ch, uint16_t* can_id, uint8_t* can_dlc, uint8_t* data)
 {
-	pthread_rwlock_rdlock(&rwlock);
-
-	// Read CAN frame
-
-	pthread_rwlock_unlock(&rwlock);
 	return 0;
 }
 
-void* CAN_loop_func(void* arg)
+void* CAN_receive(void* arg)
 {
 	CAN_CHANNEL_E can_ch = *( (CAN_CHANNEL_E*)arg );
-	CAN_FRAME_T frame_info;
+	CAN_RxFrame_T frame_info;
 	struct can_frame can_rx_frame;
 	socklen_t len;
 	uint8_t i;
@@ -170,7 +142,7 @@ void* CAN_loop_func(void* arg)
 		frame_info.timestamp = Get_Timestamp();
 		frame_info.frame = can_rx_frame;
 
-		CAN_Write_Buff(frame_info);
+		CAN_Write_RxBuff(frame_info);
 
 		printf("(%06d):\t%s\trx\t%03X\t[%d]\t",frame_info.timestamp, can_ifr[can_ch].ifr_name, can_rx_frame.can_id, can_rx_frame.can_dlc);
 		for (i = 0; i < can_rx_frame.can_dlc; i++)
@@ -183,58 +155,4 @@ void* CAN_loop_func(void* arg)
 	return 0;
 }
 
-void CAN_Buff_Init(void)
-{
-	memset(&CAN_Buff, 0x00, sizeof(CAN_RXBUFF_T));
-}
 
-int CAN_Read_Buff(CAN_FRAME_T* frame)
-{
-	int res = 0;
-	pthread_rwlock_wrlock(&rwlock);
-
-	if (0 == CAN_Buff.len)
-	{
-		res = -1;
-	}
-	else
-	{
-		*frame = CAN_Buff.buff[CAN_Buff.head];
-		CAN_Buff.head = (CAN_Buff.head + 1) % CAN_RX_BUFFSIZE;
-		CAN_Buff.len--;
-	}
-
-	pthread_rwlock_unlock(&rwlock);
-
-	return res;
-}
-
-int CAN_Write_Buff(CAN_FRAME_T frame)
-{
-	int res = 0;
-	pthread_rwlock_wrlock(&rwlock);
-
-	if (CAN_RX_BUFFSIZE == CAN_Buff.len)
-	{
-		res = -1;
-	}
-	else
-	{
-		CAN_Buff.buff[CAN_Buff.tail] = frame;
-		CAN_Buff.tail = (CAN_Buff.tail + 1) % CAN_RX_BUFFSIZE;
-		CAN_Buff.len++;
-	}
-
-	pthread_rwlock_unlock(&rwlock);
-
-	return res;
-}
-
-uint16_t GetBuffLength(void)
-{
-	uint16_t len = 0;
-	pthread_rwlock_rdlock(&rwlock);
-	len = CAN_Buff.len;
-	pthread_rwlock_unlock(&rwlock);
-	return len;
-}

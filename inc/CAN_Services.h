@@ -1,5 +1,5 @@
-#ifndef __CANSERVICE_H
-#define __CANSERVICE_H
+#ifndef __CAN_SERVICES_H
+#define __CAN_SERVICES_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -13,36 +13,12 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "Timer.h"
+#include "CAN_Buffer.h"
+#include "Task10ms.h"
 
 #define SetBaud(can_ch, baud) system("ip link set "#can_ch" type can bitrate "#baud"")
 #define CAN_UP(can_ch) system("ifconfig "#can_ch" up")
 #define CAN_DOWN(can_ch) system("ifconfig "#can_ch" down")
-
-#define CAN_RX_BUFFSIZE 256
-
-typedef enum CAN_CHANNEL_E
-{
-	CAN0_CH = 0,
-	CAN1_CH = 1,
-	CAN_CH_NUM
-}CAN_CHANNEL_E;
-
-typedef struct
-{
-	uint32_t timestamp;
-	CAN_CHANNEL_E can_ch;
-	struct can_frame frame;
-}CAN_FRAME_T;
-
-typedef struct
-{
-	uint16_t len;
-	uint16_t head;
-	uint16_t tail;
-	CAN_FRAME_T buff[CAN_RX_BUFFSIZE];	
-}CAN_RXBUFF_T;
-
 
 int CAN_Init(CAN_CHANNEL_E can_ch);
 int CAN_DeInit(CAN_CHANNEL_E can_ch);
@@ -50,15 +26,6 @@ int CAN_SetBaudrate(CAN_CHANNEL_E can_ch, int baud);
 int CAN_SetMode(CAN_CHANNEL_E can_ch, uint8_t mode);
 int CAN_SendPacket(CAN_CHANNEL_E can_ch, uint16_t can_id, uint8_t can_dlc, uint8_t* data);
 int CAN_RecvPacket(CAN_CHANNEL_E can_ch, uint16_t* can_id, uint8_t* can_dlc, uint8_t* data);
-
-int CAN_Rwlock_Init(void);
-int CAN_Rwlock_DeInit(void);
-
-void CAN_Buff_Init(void);
-int CAN_Read_Buff(CAN_FRAME_T* frame);
-int CAN_Write_Buff(CAN_FRAME_T frame);
-uint16_t GetBuffLength(void);
-
 
 #endif
 

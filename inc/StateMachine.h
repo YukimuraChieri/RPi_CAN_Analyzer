@@ -3,8 +3,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "CAN_Service.h"
-#include "UDP_Service.h"
+#include "CAN_Services.h"
+#include "UDP_Services.h"
 
 typedef enum
 {
