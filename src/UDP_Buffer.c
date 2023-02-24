@@ -142,3 +142,22 @@ int UDP_Buff_WriteData(UDP_Buff_T* buff, uint8_t* data, size_t len)
 	return res;
 }
 
+/* 获取缓冲区数据的总字节数 */
+size_t UDP_GetBuffLength(UDP_Buff_T* buff)
+{
+    size_t len = 0;
+    pthread_rwlock_wrlock(&buff->rwlock);
+    len = buff->length;
+    pthread_rwlock_unlock(&buff->rwlock);
+    return len;
+}
+
+/* 获取缓冲区数据包的个数 */
+size_t UDP_GetPacketNum(UDP_Buff_T* buff)
+{
+    size_t num = 0;
+    pthread_rwlock_wrlock(&buff->rwlock);
+    num = buff->p_fifo.length;
+    pthread_rwlock_unlock(&buff->rwlock);
+    return num;
+}

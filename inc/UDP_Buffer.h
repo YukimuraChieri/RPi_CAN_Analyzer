@@ -29,10 +29,13 @@ typedef struct
     pthread_rwlock_t rwlock;
 }UDP_Buff_T;
 
+/* UDP缓冲接口函数 */
 int UDP_Buff_Init(UDP_Buff_T* buff);
 int UDP_Buff_DeInit(UDP_Buff_T* buff);
 int UDP_Buff_ReadData(UDP_Buff_T* buff, uint8_t* data, size_t* len);
 int UDP_Buff_WriteData(UDP_Buff_T* buff, uint8_t* data, size_t len);
+size_t UDP_GetBuffLength(UDP_Buff_T* buff);
+size_t UDP_GetPacketNum(UDP_Buff_T* buff);
 
 #endif
 

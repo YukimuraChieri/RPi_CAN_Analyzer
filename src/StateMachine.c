@@ -50,7 +50,7 @@ void State_Machine(void)
                 }
                 break;
 
-                defalut: {
+                default: {
                     clientState = Client_Stop;
                 }
                 break;

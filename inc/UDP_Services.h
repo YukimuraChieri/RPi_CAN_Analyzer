@@ -18,6 +18,8 @@
 #include <linux/wireless.h>
 #include "UDP_Buffer.h"
 
+extern UDP_Buff_T UDP_RxBuff, UDP_TxBuff;
+
 int UDP_Init(void);
 int UDP_DeInit(void);
 void UDP_SendPacket(uint8_t *data, uint16_t len);

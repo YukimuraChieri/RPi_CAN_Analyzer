@@ -1,10 +1,11 @@
 #include "UDP_Services.h"
 #include "CAN_Services.h"
+#include "Timestamp.h"
 #include "Task10ms.h"
 
 #define BUFF_SIZE 1024
-#define SERVER_PORT 10000
-#define CLIENT_PORT 10001
+#define SERVER_PORT 10000   /* 服务端口 */
+#define CLIENT_PORT 10001   /* 客户端口 */
 #define SERVER_IP "192.168.43.165"
 #define CLIENT_IP "192.168.43.198"
 
@@ -16,6 +17,7 @@ socklen_t sock_len = sizeof(srv_addr);
 struct ifreq wlan_ifr;
 int sock_fd;
 pthread_t udp_rx_thrd;
+UDP_Buff_T UDP_RxBuff, UDP_TxBuff;
 
 /* 大于所有支持UDP的网卡信息 */
 void Print_All_Net_Info(void)
@@ -129,6 +131,9 @@ in_addr_t Get_Wireless_If_Addr(char *ath)
 
 int UDP_Init(void)
 {
+    UDP_Buff_Init(&UDP_RxBuff);
+    UDP_Buff_Init(&UDP_TxBuff);
+
 	sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
 	srv_addr.sin_family = AF_INET;	// ipv4
@@ -136,11 +141,11 @@ int UDP_Init(void)
 	// srv_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
     srv_addr.sin_addr.s_addr = Get_Wireless_If_Addr("wlan0");
 
-	memset(&wlan_ifr, 0x00, sizeof(wlan_ifr));
-	strcpy(wlan_ifr.ifr_name, "wlan0");
-	setsockopt(sock_fd, SOL_SOCKET, SO_BINDTODEVICE, (char*)&wlan_ifr, sizeof(wlan_ifr));
+	//memset(&wlan_ifr, 0x00, sizeof(wlan_ifr));
+	//strcpy(wlan_ifr.ifr_name, "wlan0");
+	//setsockopt(sock_fd, SOL_SOCKET, SO_BINDTODEVICE, (char*)&wlan_ifr, sizeof(wlan_ifr));
 
-	printf("WLAN0 Local IP: %s\r\n", inet_ntoa(((struct sockaddr_in*)&(wlan_ifr.ifr_addr))->sin_addr));
+	//printf("WLAN0 Local IP: %s\r\n", inet_ntoa(((struct sockaddr_in*)&(wlan_ifr.ifr_addr))->sin_addr));
 
 	if (-1 == sock_fd)
 	{
@@ -156,14 +161,14 @@ int UDP_Init(void)
 
 	int res;
 
-	res = pthread_create(&udp_rx_thrd, NULL, UDP_receive, (void*)0);
+	res = pthread_create(&udp_rx_thrd, NULL, UDP_receive, NULL);
 	if (0 != res)
 	{
-		printf("Create thread error: %s (errno: %d)\r\n", strerror(errno), errno);
+		printf("Create UDP receive thread error: %s (errno: %d)\r\n", strerror(errno), errno);
 		return -1;
 	}
     pthread_detach(udp_rx_thrd);
-	printf("Create thread success\r\n");
+	printf("Create UDP receive thread success\r\n");
 
 	return 0;
 }
@@ -190,44 +195,18 @@ void* UDP_receive(void *arg)
 
 	while(1)
 	{
-		memset(buff, 0x00, BUFF_SIZE);
 		recvlen = recvfrom(sock_fd, buff, BUFF_SIZE, 0, (struct sockaddr*)&cli_addr, &socklen);
-		// printf("buff:%02X %02X\r\n", buff[0], buff[1]);
-		printf("[udp recv len]: %d\r\n", recvlen);
-
-		if (0xEE == buff[0])
-		{
-			printf("Task10ms OFF\r\n");
-			Task10ms_Cancel();
-		}
-		else if (0xFF == buff[0])
-		{
-			printf("Task10ms ON\r\n");
-			Task10ms_Start();
-		}
-		else if (0x10 == buff[0])
-		{
-			printf("CAN1 OFF\r\n");
-			CAN_DeInit(CAN1_CH);
-		}
-		else if (0x11 == buff[0])
-		{
-			printf("CAN1 ON\r\n");
-			CAN_Init(CAN1_CH);
-		}
-		else if (0x00 == buff[0])
-		{
-			printf("CAN0 OFF\r\n");
-			CAN_DeInit(CAN0_CH);
-		}
-		else if (0x01 == buff[0])
-		{
-			printf("CAN0 ON\r\n");
-			CAN_Init(CAN0_CH);
-		}
+        if (-1 != recvlen)
+        {
+		    printf("[udp recv len]: %d\r\n", recvlen);
+            UDP_Buff_WriteData(&UDP_RxBuff, buff, recvlen);
+        }
+        else
+        {
+            printf("UDP receive error!\r\n");
+        }
 	}
 	pthread_exit(NULL);
 	return 0;
 }
-
 

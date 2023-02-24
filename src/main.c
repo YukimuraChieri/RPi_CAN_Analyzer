@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "Timestamp.h"
 #include "UDP_Services.h"
 #include "CAN_Services.h"
 #include "Task10ms.h"
@@ -18,12 +19,12 @@ int main(int argc, char const *argv[])
 	uint8_t send_buff[8] = {0};
 	uint8_t i;
 
-	// Print_All_Net_Info();
+	//Print_All_Net_Info();
 	
-	CAN_RxBuff_Init();
-	CAN_TxBuff_Init();
-	CAN_Init(CAN0_CH);
-	CAN_Init(CAN1_CH);
+	//CAN_RxBuff_Init();
+	//CAN_TxBuff_Init();
+	//CAN_Init(CAN0_CH);
+	//CAN_Init(CAN1_CH);
 
 	UDP_Init();
 	
@@ -40,7 +41,7 @@ int main(int argc, char const *argv[])
 		{
 			send_buff[i] = send_buff[0] << i;
 		}
-		CAN_SendPacket(CAN1_CH, 0x201, 8, send_buff);
+		//CAN_SendPacket(CAN1_CH, 0x201, 8, send_buff);
 		printf("[main loop]:%ld\r\n", time(NULL));
 		msleep(3000);
 	}

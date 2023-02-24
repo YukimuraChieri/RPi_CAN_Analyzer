@@ -9,13 +9,11 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "CAN_Services.h"
-#include "UDP_Services.h"
-#include "crcLib.h"
-
-
-void Reset_Timestamp(void);
-uint32_t Get_Timestamp(void);
+#include "Timestamp.h"
+#include "CAN_Input.h"
+#include "CAN_Output.h"
+#include "UDP_Input.h"
+#include "UDP_Output.h"
 
 int Task10ms_Init(void);
 int Task10ms_Start(void);
